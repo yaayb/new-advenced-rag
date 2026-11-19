@@ -1,0 +1,58 @@
+export type Mode = "bm25" | "dense" | "hybrid";
+
+export interface Chunk {
+  chunk_id: string;
+  doc_id: string;
+  text: string;
+  score: number;
+  rank: number;
+  token_count: number;
+  bm25_rank: number | null;
+  dense_rank: number | null;
+}
+export interface QueryResult {
+  question: string;
+  mode: Mode;
+  answer: string;
+  chunks: Chunk[];
+  stage_ms: Record<string, number>;
+  context_tokens: number;
+  generator: string;
+}
+export interface DocInfo { doc_id: string; title: string; chunks: number; tokens: number }
+export interface EvalSummary {
+  run_id: number; mode: Mode; k: number; n_questions: number; hit_rate: number; recall: number;
+  mrr: number; ndcg: number; answer_coverage: number; avg_context_tokens: number;
+  latency_ms_mean: number; latency_ms_p95: number; generator: string;
+}
+export interface Health { status: string; version: string; vector_backend: string; generator: string; documents: number }
+
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, init);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+  }
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+const json = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export const api = {
+  health: () => req<Health>("/health"),
+  documents: () => req<DocInfo[]>("/documents"),
+  addDocument: (title: string, text: string) => req<{ doc_id: string; chunks: number }>("/documents", json({ title, text })),
+  upload: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return req<{ doc_id: string; chunks: number }>("/documents/upload", { method: "POST", body: fd });
+  },
+  deleteDocument: (id: string) => req<void>(`/documents/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  query: (question: string, mode: Mode, k: number) => req<QueryResult>("/query", json({ question, mode, k })),
+  loadBenchmark: () => req<{ documents: number; questions: number }>("/eval/load-benchmark", { method: "POST" }),
+  runEval: (modes: Mode[], k: number) => req<EvalSummary[]>("/eval/run", json({ modes, k })),
+  runs: () => req<{ run_id: number; created_at: string; mode: Mode; k: number; summary: EvalSummary }[]>("/eval/runs"),
+};

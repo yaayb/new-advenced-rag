@@ -1,0 +1,30 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports: ["6333:6333"]
+    volumes: [qdrant_data:/qdrant/storage]
+
+  backend:
+    build: ./backend
+    depends_on: [qdrant]
+    environment:
+      EVIDENCELAB_VECTOR_BACKEND: ${EVIDENCELAB_VECTOR_BACKEND:-qdrant}
+      EVIDENCELAB_QDRANT_URL: http://qdrant:6333
+      EVIDENCELAB_LLM_BACKEND: ${EVIDENCELAB_LLM_BACKEND:-extractive}
+      EVIDENCELAB_LLM_BASE_URL: ${EVIDENCELAB_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      EVIDENCELAB_LLM_MODEL: ${EVIDENCELAB_LLM_MODEL:-llama3.2}
+      EVIDENCELAB_CORS_ORIGINS: http://localhost:8080
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - backend_data:/data
+      - ./eval_data:/eval_data:ro
+    ports: ["8000:8000"]
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports: ["8080:80"]
+
+volumes:
+  qdrant_data:
+  backend_data:

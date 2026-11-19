@@ -1,0 +1,2 @@
+Espresso Extraction Basics
+Espresso is made by forcing hot water at about nine bars of pressure through finely ground coffee. A typical recipe uses 18 grams of coffee to produce 36 grams of liquid in 25 to 30 seconds. If the shot runs too fast it tastes sour and thin, which indicates under-extraction. A shot that runs too slowly tastes bitter and harsh, a sign of over-extraction. Water temperature is normally held between 90 and 96 degrees Celsius.

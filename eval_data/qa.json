@@ -1,0 +1,167 @@
+{
+    "questions":  [
+                      {
+                          "id":  "q1",
+                          "question":  "When was the Calder Point Lighthouse finished?",
+                          "relevant_docs":  [
+                                                "lighthouse"
+                                            ],
+                          "answer_keywords":  [
+                                                  "1874"
+                                              ]
+                      },
+                      {
+                          "id":  "q2",
+                          "question":  "What fuel did the lighthouse lamp burn before kerosene?",
+                          "relevant_docs":  [
+                                                "lighthouse"
+                                            ],
+                          "answer_keywords":  [
+                                                  "whale oil"
+                                              ]
+                      },
+                      {
+                          "id":  "q3",
+                          "question":  "How do bees tell nestmates which direction food lies?",
+                          "relevant_docs":  [
+                                                "bees"
+                                            ],
+                          "answer_keywords":  [
+                                                  "angle",
+                                                  "sun"
+                                              ]
+                      },
+                      {
+                          "id":  "q4",
+                          "question":  "What does the length of the waggle run signify?",
+                          "relevant_docs":  [
+                                                "bees"
+                                            ],
+                          "answer_keywords":  [
+                                                  "distance"
+                                              ]
+                      },
+                      {
+                          "id":  "q5",
+                          "question":  "How long should a sourdough starter take to double?",
+                          "relevant_docs":  [
+                                                "sourdough"
+                                            ],
+                          "answer_keywords":  [
+                                                  "four to eight"
+                                              ]
+                      },
+                      {
+                          "id":  "q6",
+                          "question":  "Why refrigerate shaped loaves overnight?",
+                          "relevant_docs":  [
+                                                "sourdough"
+                                            ],
+                          "answer_keywords":  [
+                                                  "flavour"
+                                              ]
+                      },
+                      {
+                          "id":  "q7",
+                          "question":  "How much power do solar panels lose each year?",
+                          "relevant_docs":  [
+                                                "solar"
+                                            ],
+                          "answer_keywords":  [
+                                                  "half a percent"
+                                              ]
+                      },
+                      {
+                          "id":  "q8",
+                          "question":  "What device converts panel DC output for the grid?",
+                          "relevant_docs":  [
+                                                "solar"
+                                            ],
+                          "answer_keywords":  [
+                                                  "inverter"
+                                              ]
+                      },
+                      {
+                          "id":  "q9",
+                          "question":  "What happens to the congestion window after triple duplicate ACKs?",
+                          "relevant_docs":  [
+                                                "tcp"
+                                            ],
+                          "answer_keywords":  [
+                                                  "halves"
+                                              ]
+                      },
+                      {
+                          "id":  "q10",
+                          "question":  "Which congestion algorithm estimates bandwidth rather than loss?",
+                          "relevant_docs":  [
+                                                "tcp"
+                                            ],
+                          "answer_keywords":  [
+                                                  "BBR"
+                                              ]
+                      },
+                      {
+                          "id":  "q11",
+                          "question":  "Why does mRNA not change a person\u0027s DNA?",
+                          "relevant_docs":  [
+                                                "vaccines"
+                                            ],
+                          "answer_keywords":  [
+                                                  "nucleus"
+                                              ]
+                      },
+                      {
+                          "id":  "q12",
+                          "question":  "What protects mRNA and helps it enter cells?",
+                          "relevant_docs":  [
+                                                "vaccines"
+                                            ],
+                          "answer_keywords":  [
+                                                  "lipid"
+                                              ]
+                      },
+                      {
+                          "id":  "q13",
+                          "question":  "How did Roman water channels move water without pumps?",
+                          "relevant_docs":  [
+                                                "rome"
+                                            ],
+                          "answer_keywords":  [
+                                                  "gravity"
+                                              ]
+                      },
+                      {
+                          "id":  "q14",
+                          "question":  "How many aqueducts supplied the city of Rome?",
+                          "relevant_docs":  [
+                                                "rome"
+                                            ],
+                          "answer_keywords":  [
+                                                  "eleven"
+                                              ]
+                      },
+                      {
+                          "id":  "q15",
+                          "question":  "What does a sour, thin espresso shot indicate?",
+                          "relevant_docs":  [
+                                                "coffee"
+                                            ],
+                          "answer_keywords":  [
+                                                  "under-extraction"
+                                              ]
+                      },
+                      {
+                          "id":  "q16",
+                          "question":  "What dose of coffee grounds and yield is a typical espresso recipe?",
+                          "relevant_docs":  [
+                                                "coffee"
+                                            ],
+                          "answer_keywords":  [
+                                                  "18 grams",
+                                                  "36 grams"
+                                              ]
+                      }
+                  ],
+    "description":  "EvidenceLab original benchmark: 8 short documents, 16 ground-truth QA pairs (single relevant doc each)."
+}

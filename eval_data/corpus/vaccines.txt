@@ -1,0 +1,2 @@
+How mRNA Vaccines Work
+mRNA vaccines deliver instructions for building a harmless fragment of a pathogen protein into the cells of the recipient. The mRNA is wrapped in lipid nanoparticles that protect it and help it enter cells. Ribosomes read the message and produce the protein, which the immune system learns to recognise. The mRNA is degraded within days and never enters the cell nucleus or alters DNA. Because the process needs no live virus, manufacturers can update the sequence quickly for new variants.

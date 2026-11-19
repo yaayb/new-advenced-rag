@@ -1,0 +1,2 @@
+TCP Congestion Control
+TCP congestion control prevents senders from overwhelming the network. In slow start the congestion window doubles every round trip until it reaches the slow start threshold. After that, congestion avoidance grows the window by one segment per round trip. When packet loss is detected through triple duplicate acknowledgements, the sender halves its window in fast recovery. CUBIC is the default algorithm on Linux, while BBR estimates bandwidth and round trip time instead of reacting to loss.

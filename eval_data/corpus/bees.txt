@@ -1,0 +1,2 @@
+Honeybee Waggle Dance
+Honeybee foragers communicate the location of food through the waggle dance. The angle of the waggle run relative to vertical shows the direction of the food relative to the sun. The duration of the waggle run encodes distance, with roughly one second signalling about one kilometre. Other workers follow the dancer in the dark hive and then fly out to find the source. Karl von Frisch shared a Nobel Prize in 1973 for decoding this behaviour.

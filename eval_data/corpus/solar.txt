@@ -1,0 +1,2 @@
+Photovoltaic Solar Panels
+Photovoltaic panels convert sunlight directly into electricity using semiconductor cells, most commonly made of crystalline silicon. Typical commercial panels reach efficiencies between 18 and 22 percent. Output declines slowly, about half a percent per year, so many panels still deliver 80 percent of rated power after 25 years. Higher cell temperatures reduce voltage, so panels often perform better on cold, clear days. Inverters transform the direct current output into alternating current for the grid.
