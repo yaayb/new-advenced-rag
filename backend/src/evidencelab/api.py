@@ -1,8 +1,10 @@
+import hmac
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import __version__
@@ -40,6 +42,23 @@ class EvalRequest(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="EvidenceLab", version=__version__)
+
+    @app.middleware("http")
+    async def require_api_key(request: Request, call_next):  # type: ignore[no-untyped-def]
+        key = get_settings().api_key
+        path = request.url.path
+        if (
+            key
+            and request.method != "OPTIONS"
+            and path.startswith("/api")
+            and path != "/api/health"
+            and not hmac.compare_digest(
+                request.headers.get("x-api-key", "").encode(), key.encode()
+            )
+        ):
+            return JSONResponse({"detail": "clé API manquante ou invalide"}, status_code=401)
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_settings().cors_origins.split(","),
@@ -47,10 +66,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/api/auth/check")
+    def auth_check() -> dict:
+        return {"ok": True}
+
     @app.get("/api/health")
     def health(engine: Engine = Depends(get_engine)) -> dict:
         return {
             "status": "ok", "version": __version__,
+            "auth_required": bool(get_settings().api_key),
             "vector_backend": get_settings().vector_backend,
             "generator": engine.generator.name,
             "documents": len(engine.db.list_documents()),

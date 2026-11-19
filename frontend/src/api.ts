@@ -25,10 +25,16 @@ export interface EvalSummary {
   mrr: number; ndcg: number; answer_coverage: number; avg_context_tokens: number;
   latency_ms_mean: number; latency_ms_p95: number; generator: string;
 }
-export interface Health { status: string; version: string; vector_backend: string; generator: string; documents: number }
+export interface Health { status: string; version: string; auth_required: boolean; vector_backend: string; generator: string; documents: number }
+
+const KEY_STORAGE = "evidencelab_api_key";
+export const getKey = () => localStorage.getItem(KEY_STORAGE) ?? "";
+export const setKey = (k: string) => (k ? localStorage.setItem(KEY_STORAGE, k) : localStorage.removeItem(KEY_STORAGE));
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, init);
+  const headers = new Headers(init?.headers);
+  if (getKey()) headers.set("X-API-Key", getKey());
+  const res = await fetch(`/api${path}`, { ...init, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
@@ -43,6 +49,7 @@ const json = (body: unknown): RequestInit => ({
 
 export const api = {
   health: () => req<Health>("/health"),
+  checkKey: () => req<{ ok: boolean }>("/auth/check"),
   documents: () => req<DocInfo[]>("/documents"),
   addDocument: (title: string, text: string) => req<{ doc_id: string; chunks: number }>("/documents", json({ title, text })),
   upload: (file: File) => {

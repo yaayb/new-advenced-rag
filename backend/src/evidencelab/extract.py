@@ -30,7 +30,7 @@ def extract_text(filename: str, raw: bytes) -> str:
         paras = ["".join(t.text or "" for t in p.iter(f"{_W}t")) for p in root.iter(f"{_W}p")]
         text = "\n\n".join(p for p in paras if p.strip())
     elif name.endswith((".txt", ".md", ".markdown", ".csv")):
-        text = raw.decode("utf-8", errors="replace")
+        text = raw.decode("utf-8-sig", errors="replace")
     else:
         raise ValueError("type de fichier non pris en charge (PDF, DOCX, TXT ou MD)")
     text = re.sub(r"[ \t]+", " ", text).strip()

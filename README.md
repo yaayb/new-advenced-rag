@@ -27,6 +27,23 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 ```
 Vérifications : `ruff check .` et `pytest` (backend) ; `npm run typecheck && npm run build` (frontend).
 
+## Déploiement en production (VPS + HTTPS)
+Prérequis : un serveur avec Docker, un nom de domaine dont l'enregistrement DNS A pointe vers le serveur, ports 80 et 443 ouverts.
+```bash
+git clone https://github.com/yaayb/new-advenced-rag.git && cd new-advenced-rag
+cp .env.example .env
+# éditez .env : DOMAIN=votre-domaine.tld  et  EVIDENCELAB_API_KEY=<clé générée>
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # pour générer la clé
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+```
+- Seul Caddy est exposé (80/443) et obtient automatiquement le certificat HTTPS. Qdrant et le backend restent sur le réseau interne.
+- L'accès est protégé par la clé API (en-tête `X-API-Key`) : l'interface demande la clé au premier chargement. `/api/health` reste public (supervision).
+- Le backend s'exécute en utilisateur non-root, avec healthcheck et redémarrage automatique.
+- Sauvegardes : les volumes `backend_data` (SQLite) et `qdrant_data` ; Qdrant est reconstructible depuis SQLite au redémarrage.
+- Mise à jour : `git pull && docker compose -f docker-compose.prod.yml --env-file .env up -d --build`.
+
+Non couvert : pas de limitation de débit (rate limiting), une seule clé partagée (pas de comptes utilisateurs), un seul processus backend. Pour un usage multi-utilisateurs ou à forte charge, ajoutez une vraie authentification et un limiteur au niveau du proxy.
+
 ## Limites
 - L'encodeur par défaut est un encodeur par hachage de traits (aucun modèle à télécharger), déterministe : une base lexicale, pas un encodeur neuronal. Implémentez `Embedder` pour en brancher un.
 - Le benchmark fourni est petit, facile et en anglais : les trois modes y obtiennent un score parfait, il ne les départage donc pas. Ajoutez des données plus difficiles dans `eval_data/`.

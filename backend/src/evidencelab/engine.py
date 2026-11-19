@@ -96,17 +96,27 @@ class Engine:
         raw = chunk_text(text, self.settings.chunk_size, self.settings.chunk_overlap)
         if not raw:
             raise ValueError("le document ne contient aucun texte")
-        self.db.add_document(
-            doc_id, title, [(f"{doc_id}#{c.index}", c.index, c.text, c.token_count) for c in raw]
-        )
-        self.reindex()
+        self._drop_chunks(doc_id)  # replacing a document: remove its old chunks first
+        rows = [(f"{doc_id}#{c.index}", c.index, c.text, c.token_count) for c in raw]
+        self.db.add_document(doc_id, title, rows)
+        for cid, idx, body, n in rows:
+            self._chunks[cid] = {
+                "chunk_id": cid, "doc_id": doc_id, "idx": idx, "text": body, "token_count": n,
+            }
+            self.bm25.add(cid, body)
+        self.store.upsert([r[0] for r in rows], self.embedder.embed([r[2] for r in rows]))
         return doc_id, len(raw)
 
+    def _drop_chunks(self, doc_id: str) -> None:
+        ids = self.db.chunk_ids(doc_id)
+        for cid in ids:
+            self._chunks.pop(cid, None)
+            self.bm25.remove(cid)
+        self.store.delete(ids)
+
     def delete(self, doc_id: str) -> bool:
-        ok = self.db.delete_document(doc_id)
-        if ok:
-            self.reindex()
-        return ok
+        self._drop_chunks(doc_id)
+        return self.db.delete_document(doc_id)
 
     def retrieve(self, question: str, mode: Mode, k: int) -> tuple[list[Candidate], dict[str, Any]]:
         timings: dict[str, float] = {}

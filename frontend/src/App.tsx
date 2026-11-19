@@ -1,6 +1,6 @@
 import { FlaskConical, Loader2, Search, Trash2, UploadCloud } from "lucide-react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { api, DocInfo, EvalSummary, Health, Mode, QueryResult } from "./api";
+import { api, DocInfo, EvalSummary, Health, Mode, QueryResult, setKey } from "./api";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const grad = "bg-gradient-to-br from-emerald-500 to-teal-700";
@@ -196,11 +196,42 @@ export default function App() {
   const [tab, setTab] = useState<"search" | "eval">("search");
   const [health, setHealth] = useState<Health | null>(null);
   const [docs, setDocs] = useState<DocInfo[]>([]);
+  const [locked, setLocked] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [keyError, setKeyError] = useState("");
+
   const reload = useCallback(() => {
-    api.health().then(setHealth).catch(() => setHealth(null));
-    api.documents().then(setDocs).catch(() => setDocs([]));
+    api.health().then(async (h) => {
+      setHealth(h);
+      if (h.auth_required) {
+        try { await api.checkKey(); setLocked(false); } catch { setLocked(true); return; }
+      }
+      api.documents().then(setDocs).catch(() => setDocs([]));
+    }).catch(() => setHealth(null));
   }, []);
   useEffect(reload, [reload]);
+
+  const unlock = async () => {
+    setKey(keyInput.trim()); setKeyError("");
+    try { await api.checkKey(); setLocked(false); setKeyInput(""); reload(); }
+    catch { setKey(""); setKeyError("Clé API invalide."); }
+  };
+
+  if (locked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-7 shadow-lg">
+          <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg font-bold text-white ${grad}`}>E</div>
+          <h1 className="text-lg font-bold">EvidenceLab</h1>
+          <p className="mt-1 text-sm text-slate-500">Accès protégé. Saisissez votre clé API.</p>
+          <input type="password" autoFocus value={keyInput} onChange={(e) => setKeyInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && unlock()}
+            className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" placeholder="Clé API" />
+          <div className="mt-3"><Note kind="error" text={keyError} /></div>
+          <button onClick={unlock} disabled={!keyInput.trim()} className={`mt-3 w-full rounded-xl py-2.5 text-sm font-bold text-white ${grad} disabled:opacity-40`}>Déverrouiller</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">

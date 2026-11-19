@@ -1,0 +1,47 @@
+# Production stack: only Caddy is exposed (80/443, automatic HTTPS).
+# Usage: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?définissez DOMAIN dans .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend]
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    volumes: [qdrant_data:/qdrant/storage]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on: [qdrant]
+    environment:
+      EVIDENCELAB_VECTOR_BACKEND: qdrant
+      EVIDENCELAB_QDRANT_URL: http://qdrant:6333
+      EVIDENCELAB_API_KEY: ${EVIDENCELAB_API_KEY:?définissez EVIDENCELAB_API_KEY dans .env}
+      EVIDENCELAB_LLM_BACKEND: ${EVIDENCELAB_LLM_BACKEND:-extractive}
+      EVIDENCELAB_LLM_BASE_URL: ${EVIDENCELAB_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      EVIDENCELAB_LLM_MODEL: ${EVIDENCELAB_LLM_MODEL:-llama3.2}
+      EVIDENCELAB_CORS_ORIGINS: https://${DOMAIN}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - backend_data:/data
+      - ./eval_data:/eval_data:ro
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on: [backend]
+
+volumes:
+  qdrant_data:
+  backend_data:
+  caddy_data:
+  caddy_config:

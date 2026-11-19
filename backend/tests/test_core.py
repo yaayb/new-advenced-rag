@@ -89,3 +89,27 @@ def test_french_accents_are_tokenised_and_retrieved() -> None:
     res = e.query("Quel est le café servi ?", "bm25", 1)
     assert res.chunks[0].doc_id == "cuisine"
     assert "café" in res.answer
+
+
+def test_incremental_index_replace_and_delete(engine: Engine) -> None:
+    engine.ingest("Alpha", "Les pommes rouges poussent en automne dans le verger.")
+    engine.ingest("Beta", "Le moteur diesel consomme du gazole.")
+    assert engine.query("pommes verger", "bm25", 1).chunks[0].doc_id == "alpha"
+    assert engine.query("pommes verger", "dense", 1).chunks[0].doc_id == "alpha"
+    # replacing a document must not leave stale chunks behind
+    engine.ingest("Alpha", "Le football se joue sur un terrain.", doc_id="alpha")
+    assert all("pommes" not in c.text for c in engine.query("pommes", "bm25", 5).chunks)
+    assert engine.delete("beta") and not engine.delete("beta")
+    assert all(c.doc_id != "beta" for c in engine.query("moteur diesel", "dense", 5).chunks)
+    assert len(engine.bm25._tf) == len(engine._chunks)
+
+
+def test_api_key_enforced(monkeypatch: pytest.MonkeyPatch, engine: Engine) -> None:
+    monkeypatch.setattr(api, "_engine", engine)
+    monkeypatch.setattr(api, "get_settings", lambda: Settings(api_key="secret", eval_data_dir=DATA))
+    c = TestClient(api.create_app())
+    assert c.get("/api/health").json()["auth_required"] is True
+    assert c.get("/api/documents").status_code == 401
+    assert c.get("/api/documents", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert c.get("/api/auth/check", headers={"X-API-Key": "secret"}).status_code == 200
+    assert c.get("/api/documents", headers={"X-API-Key": "secret"}).status_code == 200

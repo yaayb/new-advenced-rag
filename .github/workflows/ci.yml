@@ -11,6 +11,13 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config -q
+      - run: DOMAIN=example.com EVIDENCELAB_API_KEY=ci docker compose -f docker-compose.prod.yml config -q
+      - run: DOMAIN=example.com EVIDENCELAB_API_KEY=ci docker compose -f docker-compose.prod.yml build
   frontend:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: frontend } }

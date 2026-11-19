@@ -37,6 +37,10 @@ class Database:
                 [(cid, doc_id, i, t, n) for cid, i, t, n in chunks],
             )
 
+    def chunk_ids(self, doc_id: str) -> list[str]:
+        rows = self._conn.execute("SELECT chunk_id FROM chunks WHERE doc_id = ?", (doc_id,))
+        return [r["chunk_id"] for r in rows.fetchall()]
+
     def delete_document(self, doc_id: str) -> bool:
         with self._lock, self._conn:
             cur = self._conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))

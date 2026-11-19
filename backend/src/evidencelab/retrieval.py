@@ -68,6 +68,23 @@ class BM25Index:
             self._len[cid] = len(toks)
             self._df.update(set(toks))
 
+    def add(self, cid: str, text: str) -> None:
+        self.remove(cid)
+        toks = tokenize(text)
+        self._tf[cid] = Counter(toks)
+        self._len[cid] = len(toks)
+        self._df.update(set(toks))
+
+    def remove(self, cid: str) -> None:
+        tf = self._tf.pop(cid, None)
+        if tf is None:
+            return
+        self._len.pop(cid, None)
+        for t in tf:
+            self._df[t] -= 1
+            if self._df[t] <= 0:
+                del self._df[t]
+
     def search(self, query: str, k: int) -> list[Candidate]:
         n = len(self._tf)
         if n == 0:
@@ -93,6 +110,7 @@ class BM25Index:
 class VectorStore(Protocol):
     def reset(self) -> None: ...
     def upsert(self, ids: list[str], vectors: np.ndarray) -> None: ...
+    def delete(self, ids: list[str]) -> None: ...
     def search(self, vector: np.ndarray, k: int) -> list[Candidate]: ...
 
 
@@ -109,6 +127,14 @@ class MemoryVectorStore:
             return
         self._ids.extend(ids)
         self._mat = vectors if self._mat is None else np.vstack([self._mat, vectors])
+
+    def delete(self, ids: list[str]) -> None:
+        if self._mat is None or not ids:
+            return
+        drop = set(ids)
+        keep = [i for i, cid in enumerate(self._ids) if cid not in drop]
+        self._ids = [self._ids[i] for i in keep]
+        self._mat = self._mat[keep] if keep else None
 
     def search(self, vector: np.ndarray, k: int) -> list[Candidate]:
         if self._mat is None:
@@ -148,6 +174,13 @@ class QdrantVectorStore:
             for i, v in zip(ids, vectors, strict=True)
         ]
         self._client.upsert(self._collection, points=pts)
+
+    def delete(self, ids: list[str]) -> None:
+        from qdrant_client.models import PointIdsList
+
+        if ids:
+            selector = PointIdsList(points=[self._pid(i) for i in ids])
+            self._client.delete(self._collection, points_selector=selector)
 
     def search(self, vector: np.ndarray, k: int) -> list[Candidate]:
         res = self._client.query_points(self._collection, query=vector.tolist(), limit=k)

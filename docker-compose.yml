@@ -14,6 +14,7 @@ services:
       EVIDENCELAB_LLM_BASE_URL: ${EVIDENCELAB_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
       EVIDENCELAB_LLM_MODEL: ${EVIDENCELAB_LLM_MODEL:-llama3.2}
       EVIDENCELAB_CORS_ORIGINS: http://localhost:8080
+      EVIDENCELAB_API_KEY: ${EVIDENCELAB_API_KEY:-}
     extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - backend_data:/data
