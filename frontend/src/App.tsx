@@ -1,6 +1,6 @@
-import { FlaskConical, Loader2, Search, Trash2, UploadCloud } from "lucide-react";
+import { FileText, FlaskConical, Loader2, Search, Trash2, UploadCloud, X } from "lucide-react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { api, DocInfo, EvalSummary, Health, Mode, QueryResult, setKey } from "./api";
+import { api, DocContent, DocInfo, EvalSummary, Health, Mode, QueryResult, setKey } from "./api";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const grad = "bg-gradient-to-br from-emerald-500 to-teal-700";
@@ -25,7 +25,54 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-function Sidebar({ docs, reload }: { docs: DocInfo[]; reload: () => void }) {
+function DocViewer({ target, onClose }: { target: { id: string; segment?: number; query?: string }; onClose: () => void }) {
+  const [doc, setDoc] = useState<DocContent | null>(null);
+  const [error, setError] = useState("");
+  const [find, setFind] = useState(target.query ?? "");
+  const segRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  useEffect(() => {
+    api.document(target.id).then(setDoc).catch((e) => setError(msg(e)));
+  }, [target.id]);
+  useEffect(() => {
+    if (doc && target.segment !== undefined) segRefs.current[target.segment]?.scrollIntoView({ block: "center" });
+  }, [doc, target.segment]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+          <FileText size={18} className="text-emerald-600" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-bold text-slate-900">{doc?.title ?? "Chargement…"}</div>
+            {doc && <div className="text-xs text-slate-500">{doc.segments.length} segments · lecture du document indexé</div>}
+          </div>
+          <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Chercher dans le document…"
+            className="w-52 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-emerald-500" />
+          <button onClick={onClose} title="Fermer (Échap)" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <div className="space-y-4 overflow-y-auto px-6 py-5">
+          {error && <Note kind="error" text={error} />}
+          {!doc && !error && <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 size={14} className="animate-spin" />Chargement…</div>}
+          {doc?.segments.map((s) => (
+            <section key={s.idx} ref={(el) => { segRefs.current[s.idx] = el; }}
+              className={`rounded-xl border p-4 ${s.idx === target.segment ? "border-emerald-400 bg-emerald-50" : "border-slate-200"}`}>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Segment {s.idx + 1}</div>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-slate-800"><Highlight text={s.text} query={find} /></p>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ docs, reload, onOpen }: { docs: DocInfo[]; reload: () => void; onOpen: (id: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,9 +107,10 @@ function Sidebar({ docs, reload }: { docs: DocInfo[]; reload: () => void }) {
         </div>
         <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
           {docs.map((d) => (
-            <li key={d.doc_id} className="flex items-center justify-between gap-2 py-2 text-sm">
-              <div className="min-w-0"><div className="truncate font-medium text-slate-900" title={d.title}>{d.title}</div><div className="text-xs text-slate-500">{d.chunks} segments</div></div>
-              <button title="Supprimer" onClick={() => act(() => api.deleteDocument(d.doc_id))} className="text-slate-400 hover:text-red-600"><Trash2 size={15} /></button>
+            <li key={d.doc_id} onClick={() => onOpen(d.doc_id)} title="Cliquer pour lire le document"
+              className="-mx-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm transition hover:bg-emerald-50">
+              <div className="min-w-0"><div className="truncate font-medium text-slate-900 group-hover:text-emerald-700" title={d.title}>{d.title}</div><div className="text-xs text-slate-500">{d.chunks} segments · cliquer pour lire</div></div>
+              <button title="Supprimer" onClick={(e) => { e.stopPropagation(); void act(() => api.deleteDocument(d.doc_id)); }} className="text-slate-400 hover:text-red-600"><Trash2 size={15} /></button>
             </li>
           ))}
           {!docs.length && <li className="py-3 text-xs text-slate-500">Aucun document.</li>}
@@ -72,7 +120,7 @@ function Sidebar({ docs, reload }: { docs: DocInfo[]; reload: () => void }) {
   );
 }
 
-function Research({ docs }: { docs: DocInfo[] }) {
+function Research({ docs, onOpen }: { docs: DocInfo[]; onOpen: (id: string, segment?: number, query?: string) => void }) {
   const [q, setQ] = useState("");
   const [asked, setAsked] = useState("");
   const [mode, setMode] = useState<Mode>("hybrid");
@@ -146,7 +194,8 @@ function Research({ docs }: { docs: DocInfo[] }) {
               <li key={c.chunk_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                   <span className={`flex h-6 w-6 items-center justify-center rounded-full font-bold text-white ${grad}`}>{c.rank}</span>
-                  <span className="font-semibold text-slate-900">{title(c.doc_id)}</span>
+                  <button onClick={() => onOpen(c.doc_id, Number(c.chunk_id.split("#")[1]), asked)} title="Ouvrir le document à ce passage"
+                    className="font-semibold text-slate-900 underline-offset-2 hover:text-emerald-700 hover:underline">{title(c.doc_id)}</button>
                   <span className="text-slate-400">segment {c.chunk_id.split("#")[1]}</span>
                   <span className="ml-auto font-mono text-slate-400" title="score de pertinence">{c.score.toFixed(3)}{c.bm25_rank !== null && ` · bm25 #${c.bm25_rank}`}{c.dense_rank !== null && ` · dense #${c.dense_rank}`}</span>
                 </div>
@@ -198,6 +247,7 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [docs, setDocs] = useState<DocInfo[]>([]);
   const [locked, setLocked] = useState(false);
+  const [viewer, setViewer] = useState<{ id: string; segment?: number; query?: string } | null>(null);
   const [keyInput, setKeyInput] = useState("");
   const [keyError, setKeyError] = useState("");
 
@@ -251,9 +301,10 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto grid max-w-6xl gap-6 px-6 py-6 lg:grid-cols-[18rem_1fr]">
-        <Sidebar docs={docs} reload={reload} />
-        {tab === "search" ? <Research docs={docs} /> : <Evaluation />}
+        <Sidebar docs={docs} reload={reload} onOpen={(id) => setViewer({ id })} />
+        {tab === "search" ? <Research docs={docs} onOpen={(id, segment, query) => setViewer({ id, segment, query })} /> : <Evaluation />}
       </main>
+      {viewer && <DocViewer key={`${viewer.id}-${viewer.segment ?? ""}`} target={viewer} onClose={() => setViewer(null)} />}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export interface QueryResult {
   warning: string;
 }
 export interface DocInfo { doc_id: string; title: string; chunks: number; tokens: number }
+export interface DocContent { doc_id: string; title: string; segments: { idx: number; text: string; token_count: number }[] }
 export interface EvalSummary {
   run_id: number; mode: Mode; k: number; n_questions: number; hit_rate: number; recall: number;
   mrr: number; ndcg: number; answer_coverage: number; avg_context_tokens: number;
@@ -52,6 +53,7 @@ export const api = {
   health: () => req<Health>("/health"),
   checkKey: () => req<{ ok: boolean }>("/auth/check"),
   documents: () => req<DocInfo[]>("/documents"),
+  document: (id: string) => req<DocContent>(`/documents/${encodeURIComponent(id)}`),
   addDocument: (title: string, text: string) => req<{ doc_id: string; chunks: number }>("/documents", json({ title, text })),
   upload: (file: File) => {
     const fd = new FormData();

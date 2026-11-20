@@ -103,6 +103,13 @@ def create_app() -> FastAPI:
             raise HTTPException(422, str(e)) from e
         return {"doc_id": doc_id, "chunks": n}
 
+    @app.get("/api/documents/{doc_id}")
+    def read_document(doc_id: str, engine: Engine = Depends(get_engine)) -> dict:
+        doc = engine.db.get_document(doc_id)
+        if doc is None:
+            raise HTTPException(404, "document introuvable")
+        return doc
+
     @app.delete("/api/documents/{doc_id}", status_code=204)
     def delete_document(doc_id: str, engine: Engine = Depends(get_engine)) -> None:
         if not engine.delete(doc_id):

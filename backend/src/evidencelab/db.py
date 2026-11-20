@@ -37,6 +37,17 @@ class Database:
                 [(cid, doc_id, i, t, n) for cid, i, t, n in chunks],
             )
 
+    def get_document(self, doc_id: str) -> dict[str, Any] | None:
+        d = self._conn.execute(
+            "SELECT doc_id, title FROM documents WHERE doc_id = ?", (doc_id,)
+        ).fetchone()
+        if d is None:
+            return None
+        rows = self._conn.execute(
+            "SELECT idx, text, token_count FROM chunks WHERE doc_id = ? ORDER BY idx", (doc_id,)
+        ).fetchall()
+        return {**dict(d), "segments": [dict(r) for r in rows]}
+
     def chunk_ids(self, doc_id: str) -> list[str]:
         rows = self._conn.execute("SELECT chunk_id FROM chunks WHERE doc_id = ?", (doc_id,))
         return [r["chunk_id"] for r in rows.fetchall()]

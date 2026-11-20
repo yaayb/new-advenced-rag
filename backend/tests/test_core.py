@@ -75,8 +75,10 @@ def test_api_flow(monkeypatch: pytest.MonkeyPatch, engine: Engine) -> None:
     runs = c.post("/api/eval/run", json={"k": 3}).json()
     assert [r["mode"] for r in runs] == ["bm25", "dense", "hybrid"]
     assert c.get(f"/api/eval/runs/{runs[0]['run_id']}").json()["details"]
-    r = c.post("/api/documents", json={"title": "Test Doc", "text": "Pandas eat bamboo."})
-    assert r.status_code == 201
+    assert c.post("/api/documents", json={"title": "Test Doc", "text": "Pandas eat bamboo."}).status_code == 201
+    doc = c.get("/api/documents/test-doc").json()
+    assert doc["title"] == "Test Doc" and doc["segments"][0]["text"] == "Pandas eat bamboo."
+    assert c.get("/api/documents/nope").status_code == 404
     assert c.delete("/api/documents/test-doc").status_code == 204
     assert c.delete("/api/documents/test-doc").status_code == 404
     assert c.post("/api/query", json={"question": ""}).status_code == 422
