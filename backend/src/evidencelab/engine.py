@@ -1,5 +1,6 @@
 """RAG engine: ingestion + staged query pipeline with per-stage timing."""
 
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -14,11 +15,14 @@ from .retrieval import (
     Embedder,
     HashingEmbedder,
     MemoryVectorStore,
+    OpenAICompatEmbedder,
     QdrantVectorStore,
     VectorStore,
     rrf_fuse,
 )
 from .text import chunk_text, count_tokens
+
+log = logging.getLogger("evidencelab")
 
 Mode = Literal["bm25", "dense", "hybrid"]
 
@@ -48,6 +52,7 @@ class QueryResult:
     stage_ms: dict[str, float] = field(default_factory=dict)
     context_tokens: int = 0
     generator: str = ""
+    warning: str = ""
 
 
 class Engine:
@@ -67,9 +72,16 @@ class Engine:
 
     @classmethod
     def from_settings(cls, s: Settings) -> "Engine":
-        embedder = HashingEmbedder(s.embedding_dim)
+        embedder: Embedder = HashingEmbedder(s.embedding_dim)
+        if s.embedding_backend == "openai":
+            try:
+                embedder = OpenAICompatEmbedder(
+                    s.embedding_base_url, s.embedding_model, s.embedding_api_key
+                )
+            except Exception as e:  # never crash at startup because of an external API
+                log.warning("embedding API unavailable (%s); using offline hashing embedder", e)
         store: VectorStore = (
-            QdrantVectorStore(s.qdrant_url, s.qdrant_collection, s.embedding_dim)
+            QdrantVectorStore(s.qdrant_url, s.qdrant_collection, embedder.dim)
             if s.vector_backend == "qdrant"
             else MemoryVectorStore()
         )
@@ -120,6 +132,7 @@ class Engine:
 
     def retrieve(self, question: str, mode: Mode, k: int) -> tuple[list[Candidate], dict[str, Any]]:
         timings: dict[str, float] = {}
+        warning = ""
         pool = max(k * 4, 20)
         bm: list[Candidate] = []
         dn: list[Candidate] = []
@@ -128,20 +141,26 @@ class Engine:
             bm = self.bm25.search(question, pool)
             timings["bm25_ms"] = (time.perf_counter() - t) * 1000
         if mode in ("dense", "hybrid"):
-            t = time.perf_counter()
-            vec = self.embedder.embed([question])[0]
-            timings["embed_ms"] = (time.perf_counter() - t) * 1000
-            t = time.perf_counter()
-            dn = self.store.search(vec, pool)
-            timings["vector_search_ms"] = (time.perf_counter() - t) * 1000
-        if mode == "hybrid":
+            try:
+                t = time.perf_counter()
+                vec = self.embedder.embed([question])[0]
+                timings["embed_ms"] = (time.perf_counter() - t) * 1000
+                t = time.perf_counter()
+                dn = self.store.search(vec, pool)
+                timings["vector_search_ms"] = (time.perf_counter() - t) * 1000
+            except Exception as e:
+                if mode == "dense":
+                    raise
+                log.warning("dense retrieval failed, hybrid falls back to BM25: %s", e)
+                warning = "Recherche dense indisponible : résultats BM25 uniquement."
+        if mode == "hybrid" and dn:
             t = time.perf_counter()
             final = rrf_fuse([bm, dn], k)
             timings["fusion_ms"] = (time.perf_counter() - t) * 1000
         else:
             final = (bm or dn)[:k]
         ranks = {"bm25": {c.chunk_id: c.rank for c in bm}, "dense": {c.chunk_id: c.rank for c in dn}}
-        return final, {"timings": timings, "ranks": ranks}
+        return final, {"timings": timings, "ranks": ranks, "warning": warning}
 
     def query(
         self, question: str, mode: Mode = "hybrid", k: int = 5, generate: bool = True
@@ -158,16 +177,27 @@ class Engine:
                 )
             )
         stage = dict(info["timings"])
+        warning = info.get("warning", "")
         answer = ""
+        gen_name = self.generator.name
         if generate:
             t = time.perf_counter()
-            answer = self.generator.generate(question, [c.text for c in chunks])
+            contexts = [c.text for c in chunks]
+            try:
+                answer = self.generator.generate(question, contexts)
+            except Exception as e:  # LLM outage/quota: degrade to extractive, never crash
+                log.warning("generator failed: %s", e)
+                answer = ExtractiveGenerator().generate(question, contexts)
+                gen_name = "extractive (repli)"
+                warning = (warning + " " if warning else "") + (
+                    "Le LLM est indisponible (quota ou réseau) : réponse extraite des documents."
+                )
             stage["generate_ms"] = (time.perf_counter() - t) * 1000
         stage["total_ms"] = (time.perf_counter() - t0) * 1000
         return QueryResult(
             question, mode, answer, chunks,
             {k_: round(v, 3) for k_, v in stage.items()},
-            sum(c.token_count for c in chunks), self.generator.name,
+            sum(c.token_count for c in chunks), gen_name, warning,
         )
 
     @staticmethod

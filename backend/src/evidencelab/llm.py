@@ -1,6 +1,7 @@
 """Answer generators behind a Protocol."""
 
 import re
+import time
 from typing import Protocol
 
 import httpx
@@ -52,11 +53,20 @@ class OpenAICompatGenerator:
             },
             {"role": "user", "content": f"Contexte :\n{ctx}\n\nQuestion : {question}"},
         ]
-        resp = httpx.post(
-            self._url,
-            json={"model": self._model, "messages": messages, "temperature": 0},
-            headers={"Authorization": f"Bearer {self._key}"},
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        return str(resp.json()["choices"][0]["message"]["content"]).strip()
+        last: Exception | None = None
+        for attempt in range(3):
+            try:
+                resp = httpx.post(
+                    self._url,
+                    json={"model": self._model, "messages": messages, "temperature": 0},
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    timeout=self._timeout,
+                )
+                if resp.status_code in (429, 500, 502, 503):
+                    raise RuntimeError(f"HTTP {resp.status_code}")
+                resp.raise_for_status()
+                return str(resp.json()["choices"][0]["message"]["content"]).strip()
+            except (httpx.HTTPError, RuntimeError) as e:
+                last = e
+                time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError(f"LLM API unavailable: {last}")

@@ -2,6 +2,7 @@
 
 import hashlib
 import math
+import time
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -51,6 +52,48 @@ class HashingEmbedder:
             if norm > 0:
                 out[i] /= norm
         return out
+
+
+class OpenAICompatEmbedder:
+    """Neural embeddings from any OpenAI-compatible `/embeddings` endpoint (L2-normalised)."""
+
+    def __init__(
+        self, base_url: str, model: str, api_key: str, batch_size: int = 64, timeout: float = 60.0
+    ) -> None:
+        self._url = base_url.rstrip("/") + "/embeddings"
+        self._model, self._key = model, api_key
+        self._batch, self._timeout = batch_size, timeout
+        self.dim = self.embed(["dimension probe"]).shape[1]  # fails fast on bad config/key
+
+    def _call(self, texts: list[str]) -> list[list[float]]:
+        import httpx
+
+        last: Exception | None = None
+        for attempt in range(3):
+            try:
+                resp = httpx.post(
+                    self._url,
+                    json={"model": self._model, "input": texts},
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    timeout=self._timeout,
+                )
+                if resp.status_code in (429, 500, 502, 503):
+                    raise RuntimeError(f"HTTP {resp.status_code}")
+                resp.raise_for_status()
+                data = sorted(resp.json()["data"], key=lambda d: d["index"])
+                return [d["embedding"] for d in data]
+            except (httpx.HTTPError, RuntimeError) as e:
+                last = e
+                time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError(f"embedding API unavailable: {last}")
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        rows: list[list[float]] = []
+        for i in range(0, len(texts), self._batch):
+            rows.extend(self._call(texts[i : i + self._batch]))
+        mat = np.asarray(rows, dtype=np.float32)
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        return mat / np.where(norms == 0, 1.0, norms)
 
 
 class BM25Index:

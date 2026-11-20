@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "llama3.2"
     llm_api_key: str = "not-needed"
+    # "hash" = offline feature-hashing baseline; "openai" = any OpenAI-compatible /embeddings API
+    embedding_backend: str = "hash"
+    embedding_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    embedding_model: str = "gemini-embedding-001"
+    embedding_api_key: str = ""
     eval_data_dir: str = "eval_data"
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
     # When set, every /api route except /api/health requires header "X-API-Key: <value>".

@@ -44,6 +44,26 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 
 Non couvert : pas de limitation de débit (rate limiting), une seule clé partagée (pas de comptes utilisateurs), un seul processus backend. Pour un usage multi-utilisateurs ou à forte charge, ajoutez une vraie authentification et un limiteur au niveau du proxy.
 
+## Brancher une API gratuite (LLM et embeddings)
+Sans clé, le système fonctionne en mode « extractif » (renvoie les meilleures phrases). Pour des réponses rédigées et une vraie recherche sémantique, créez une clé gratuite chez un fournisseur et renseignez `.env` (la clé ne doit **jamais** être commitée) :
+
+| Fournisseur | `EVIDENCELAB_LLM_BASE_URL` | Modèle exemple |
+|---|---|---|
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| OpenRouter | `https://openrouter.ai/api/v1` | un modèle finissant par `:free` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` |
+| Ollama (local) | `http://host.docker.internal:11434/v1` | `llama3.2` |
+
+```env
+EVIDENCELAB_LLM_BACKEND=openai
+EVIDENCELAB_LLM_API_KEY=<votre clé>
+EVIDENCELAB_EMBEDDING_BACKEND=openai   # embeddings neuronaux (ex. Gemini, offre gratuite)
+EVIDENCELAB_EMBEDDING_API_KEY=<votre clé>
+```
+Après avoir changé d'embeddings, ré-importez vos documents. Les offres gratuites ont des quotas et peuvent utiliser vos données pour l'entraînement : n'y envoyez pas de documents confidentiels.
+
+**Robustesse :** si l'API du LLM est en panne ou hors quota, la réponse bascule automatiquement sur le mode extractif (avec un avertissement dans l'interface) ; si l'API d'embeddings est indisponible, la recherche hybride se limite à BM25. Le service ne plante pas. Ce comportement est couvert par des tests avec de faux serveurs, mais **aucun fournisseur réel n'a été testé** (aucune clé n'était disponible).
+
 ## Limites
 - L'encodeur par défaut est un encodeur par hachage de traits (aucun modèle à télécharger), déterministe : une base lexicale, pas un encodeur neuronal. Implémentez `Embedder` pour en brancher un.
 - Le benchmark fourni est petit, facile et en anglais : les trois modes y obtiennent un score parfait, il ne les départage donc pas. Ajoutez des données plus difficiles dans `eval_data/`.

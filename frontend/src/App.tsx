@@ -129,8 +129,9 @@ function Research({ docs }: { docs: DocInfo[] }) {
       <Note kind="error" text={error} />
       {res && (
         <>
+          {res.warning && <Note kind="error" text={res.warning} />}
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">Réponse</div>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">Réponse · {res.generator}</div>
             <p className="text-lg leading-relaxed text-slate-900"><Highlight text={res.answer} query={asked} /></p>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500">

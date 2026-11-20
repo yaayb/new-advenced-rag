@@ -18,6 +18,7 @@ export interface QueryResult {
   stage_ms: Record<string, number>;
   context_tokens: number;
   generator: string;
+  warning: string;
 }
 export interface DocInfo { doc_id: string; title: string; chunks: number; tokens: number }
 export interface EvalSummary {
